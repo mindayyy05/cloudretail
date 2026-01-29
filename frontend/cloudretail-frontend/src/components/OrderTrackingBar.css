@@ -1,0 +1,139 @@
+/* src/components/OrderTrackingBar.css */
+.tracking-bar {
+    margin: 20px 0;
+    padding: 24px;
+    background: #f8fafc;
+    border-radius: 12px;
+}
+
+.tracking-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.tracking-step-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    position: relative;
+}
+
+.tracking-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 2;
+}
+
+.step-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tracking-step.active .step-circle {
+    background: #111111;
+}
+
+.tracking-step.current .step-circle {
+    box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.1);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(17, 17, 17, 0.05);
+    }
+}
+
+.step-icon {
+    font-size: 24px;
+}
+
+.tracking-step:not(.active) .step-icon {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
+.step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tracking-step.active .step-label {
+    color: #111111;
+}
+
+.tracking-line {
+    flex: 1;
+    height: 3px;
+    background: #e2e8f0;
+    margin: 0 -10px;
+    margin-bottom: 50px;
+    position: relative;
+    z-index: 1;
+    transition: background 0.5s ease;
+}
+
+.tracking-line.active {
+    background: #111111;
+}
+
+/* Cancelled status */
+.tracking-cancelled {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    background: #fee2e2;
+    border-radius: 8px;
+    color: #991b1b;
+    font-weight: 600;
+}
+
+.cancel-icon {
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #fecaca;
+    border-radius: 50%;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .step-label {
+        font-size: 10px;
+    }
+
+    .step-circle {
+        width: 40px;
+        height: 40px;
+    }
+
+    .step-icon {
+        font-size: 18px;
+    }
+}
