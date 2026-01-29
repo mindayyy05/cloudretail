@@ -1,10 +1,12 @@
 // src/api.js
 import axios from 'axios';
 
-// Base URLs for each backend service (local dev)
-const AUTH_BASE = process.env.REACT_APP_AUTH_URL || 'http://localhost:4001';
-const PRODUCT_BASE = process.env.REACT_APP_PRODUCT_URL || 'http://localhost:4002';
-const ORDER_BASE = process.env.REACT_APP_ORDER_URL || 'http://localhost:4004';
+// Product Service runs on port 4002, Auth on 4001, Order on 4004
+const API_HOST = 'http://' + window.location.hostname;
+
+const AUTH_BASE = process.env.REACT_APP_AUTH_URL || `${API_HOST}:4001`;
+const PRODUCT_BASE = process.env.REACT_APP_PRODUCT_URL || `${API_HOST}:4002`;
+const ORDER_BASE = process.env.REACT_APP_ORDER_URL || `${API_HOST}:4004`;
 
 // Helper to attach JWT automatically
 function authHeaders() {
