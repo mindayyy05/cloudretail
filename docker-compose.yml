@@ -1,19 +1,6 @@
 version: '3.8'
 
 services:
-  # MySQL Database (Shared)
-  db:
-    image: mysql:8.0
-    container_name: cloudretail-mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: your_password
-      MYSQL_DATABASE: cloudretail_main
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-
   # Auth Service
   auth-service:
     build: ./auth-service
@@ -21,14 +8,12 @@ services:
     ports:
       - "4001:4001"
     environment:
-      DB_HOST: db
-      DB_USER: root
-      DB_PASS: your_password
-      DB_NAME: cloudretail_main
+      DB_HOST: ${RDS_ENDPOINT}
+      DB_USER: ${RDS_USER}
+      DB_PASS: ${RDS_PASS}
+      DB_NAME: auth_db
       JWT_SECRET: supersecretkey
       PORT: 4001
-    depends_on:
-      - db
 
   # Product Service
   product-service:
@@ -37,14 +22,12 @@ services:
     ports:
       - "4002:4002"
     environment:
-      DB_HOST_MAIN: db
-      DB_USER_MAIN: root
-      DB_PASS_MAIN: your_password
-      DB_NAME_MAIN: cloudretail_main
+      DB_HOST_MAIN: ${RDS_ENDPOINT}
+      DB_USER_MAIN: ${RDS_USER}
+      DB_PASS_MAIN: ${RDS_PASS}
+      DB_NAME_MAIN: product_db
       JWT_SECRET: supersecretkey
       PORT: 4002
-    depends_on:
-      - db
 
   # Order Service
   order-service:
@@ -53,15 +36,14 @@ services:
     ports:
       - "4004:4004"
     environment:
-      DB_HOST_MAIN: db
-      DB_USER_MAIN: root
-      DB_PASS_MAIN: your_password
-      DB_NAME_MAIN: cloudretail_main
+      DB_HOST_MAIN: ${RDS_ENDPOINT}
+      DB_USER_MAIN: ${RDS_USER}
+      DB_PASS_MAIN: ${RDS_PASS}
+      DB_NAME_MAIN: order_db
       PRODUCT_SERVICE_URL: http://product-service:4002
       JWT_SECRET: supersecretkey
       PORT: 4004
     depends_on:
-      - db
       - product-service
 
   # Inventory Service
@@ -71,16 +53,14 @@ services:
     ports:
       - "4003:4003"
     environment:
-      DB_HOST_MAIN: db
-      DB_USER_MAIN: root
-      DB_PASS_MAIN: your_password
-      DB_NAME_MAIN: cloudretail_main
+      DB_HOST_MAIN: ${RDS_ENDPOINT}
+      DB_USER_MAIN: ${RDS_USER}
+      DB_PASS_MAIN: ${RDS_PASS}
+      DB_NAME_MAIN: inventory_db
       JWT_SECRET: supersecretkey
       PORT: 4003
-    depends_on:
-      - db
 
-  # Frontend
+  # Frontend (Served via simple Nginx or just static files usually, but keeping container if needed)
   frontend:
     build: ./frontend/cloudretail-frontend
     container_name: cloudretail-frontend
@@ -90,6 +70,3 @@ services:
       - auth-service
       - product-service
       - order-service
-
-volumes:
-  db_data:
