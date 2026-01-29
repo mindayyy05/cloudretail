@@ -1,11 +1,11 @@
+require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 async function createDatabases() {
     const config = {
-        host: 'cloudretail-db.cpmeqcggyjs.eu-north-1.rds.amazonaws.com',
-        user: 'admin',
-        // Try default password first, commonly used in dev
-        password: 'SecurePass123!',
+        host: process.env.RDS_ENDPOINT || 'localhost',
+        user: process.env.RDS_USER || 'root',
+        password: process.env.RDS_PASS || 'your_password',
     };
 
     try {
