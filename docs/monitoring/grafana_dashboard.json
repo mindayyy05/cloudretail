@@ -1,0 +1,32 @@
+{
+    "title": "CloudRetail Microservices Dashboard",
+    "panels": [
+        {
+            "type": "graph",
+            "title": "Request Latency (p95)",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Error Rate (5xx)",
+            "targets": [
+                {
+                    "expr": "sum(rate(http_requests_total{status=~'5.*'}[5m])) / sum(rate(http_requests_total[5m]))"
+                }
+            ]
+        },
+        {
+            "type": "gauge",
+            "title": "CPU Usage",
+            "targets": [
+                {
+                    "expr": "process_cpu_seconds_total"
+                }
+            ]
+        }
+    ]
+}

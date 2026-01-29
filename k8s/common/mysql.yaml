@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cloudretail-secrets
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: cloudretail-config
+              key: DB_NAME_MAIN
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: db-data
+        emptyDir: {} # For persistence in real env, use PVC
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudretail-mysql
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
+  clusterIP: None # Headless service for stable DNS if needed, or standard ClusterIP

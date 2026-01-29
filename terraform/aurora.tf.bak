@@ -1,0 +1,79 @@
+# Security Group for Database
+resource "aws_security_group" "db" {
+  name        = "${var.project_name}-db-sg"
+  description = "Allow inbound traffic to Aurora from ECS and Lambda"
+  vpc_id      = aws_vpc.main.id
+
+  # We will add specific ingress rules for ECS and Lambda security groups later
+  # For now, allowing traffic from the VPC CIDR for flexibility
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-db-sg"
+  }
+}
+
+# DB Subnet Group
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.project_name}-db-subnet-group"
+  subnet_ids = aws_subnet.private.*.id
+
+  tags = {
+    Name = "${var.project_name}-db-subnet-group"
+  }
+}
+
+# Aurora Serverless v2 Cluster
+resource "aws_rds_cluster" "aurora" {
+  cluster_identifier      = "${var.project_name}-cluster"
+  engine                  = "aurora-mysql"
+  engine_mode             = "provisioned" # Provisioned mode is used for Serverless v2
+  engine_version          = "8.0.mysql_aurora.3.05.2"
+  database_name           = "cloudretail"
+  master_username         = "admin"
+  master_password         = var.db_password
+  db_subnet_group_name    = aws_db_subnet_group.main.name
+  vpc_security_group_ids  = [aws_security_group.db.id]
+  skip_final_snapshot     = true
+  apply_immediately       = true
+
+  # Encryption at Rest
+  storage_encrypted = true
+  # master_user_secret_kms_key_id = ... (If using Secrets Manager)
+
+  serverlessv2_scaling_configuration {
+    max_capacity = 2.0
+    min_capacity = 0.5
+  }
+
+  tags = {
+    Name = "${var.project_name}-aurora-cluster"
+  }
+}
+
+# DB Instance
+resource "aws_rds_cluster_instance" "instance" {
+  count               = 2 # Multi-AZ HA
+  identifier          = "${var.project_name}-instance-${count.index + 1}"
+  cluster_identifier  = aws_rds_cluster.aurora.id
+  instance_class      = "db.serverless"
+  engine              = aws_rds_cluster.aurora.engine
+  engine_version      = aws_rds_cluster.aurora.engine_version
+  db_subnet_group_name = aws_db_subnet_group.main.name
+
+  tags = {
+    Name = "${var.project_name}-db-instance-${count.index + 1}"
+  }
+}

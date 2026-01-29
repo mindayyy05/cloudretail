@@ -1,0 +1,9 @@
+{
+  "name": "cloudretail-inventory-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda for stock reduction",
+  "main": "index.js",
+  "dependencies": {
+    "mysql2": "^3.15.3"
+  }
+}

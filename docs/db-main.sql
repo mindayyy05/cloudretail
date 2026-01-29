@@ -1,0 +1,50 @@
+CREATE DATABASE IF NOT EXISTS cloudretail_main;
+USE cloudretail_main;
+
+CREATE TABLE users (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('USER','ADMIN') NOT NULL DEFAULT 'USER',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  category VARCHAR(100),
+  image_url VARCHAR(255),
+  rating DECIMAL(2,1),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE inventory (
+  product_id BIGINT PRIMARY KEY,
+  available_qty INT NOT NULL,
+  reserved_qty INT NOT NULL DEFAULT 0,
+  CONSTRAINT fk_inventory_product FOREIGN KEY (product_id)
+    REFERENCES products(id)
+);
+
+CREATE TABLE orders (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  status ENUM('PENDING','CONFIRMED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+  total_amount DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE order_items (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(10,2) NOT NULL,
+  CONSTRAINT fk_items_order FOREIGN KEY (order_id) REFERENCES orders(id),
+  CONSTRAINT fk_items_product FOREIGN KEY (product_id) REFERENCES products(id)
+);

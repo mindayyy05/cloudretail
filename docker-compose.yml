@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # MySQL Database (Shared)
+  db:
+    image: mysql:8.0
+    container_name: cloudretail-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: your_password
+      MYSQL_DATABASE: cloudretail_main
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # Auth Service
+  auth-service:
+    build: ./auth-service
+    container_name: cloudretail-auth
+    ports:
+      - "4001:4001"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASS: your_password
+      DB_NAME: cloudretail_main
+      JWT_SECRET: supersecretkey
+      PORT: 4001
+    depends_on:
+      - db
+
+  # Product Service
+  product-service:
+    build: ./product-service
+    container_name: cloudretail-product
+    ports:
+      - "4002:4002"
+    environment:
+      DB_HOST_MAIN: db
+      DB_USER_MAIN: root
+      DB_PASS_MAIN: your_password
+      DB_NAME_MAIN: cloudretail_main
+      JWT_SECRET: supersecretkey
+      PORT: 4002
+    depends_on:
+      - db
+
+  # Order Service
+  order-service:
+    build: ./order-service
+    container_name: cloudretail-order
+    ports:
+      - "4004:4004"
+    environment:
+      DB_HOST_MAIN: db
+      DB_USER_MAIN: root
+      DB_PASS_MAIN: your_password
+      DB_NAME_MAIN: cloudretail_main
+      PRODUCT_SERVICE_URL: http://product-service:4002
+      JWT_SECRET: supersecretkey
+      PORT: 4004
+    depends_on:
+      - db
+      - product-service
+
+  # Inventory Service
+  inventory-service:
+    build: ./inventory-service
+    container_name: cloudretail-inventory
+    ports:
+      - "4003:4003"
+    environment:
+      DB_HOST_MAIN: db
+      DB_USER_MAIN: root
+      DB_PASS_MAIN: your_password
+      DB_NAME_MAIN: cloudretail_main
+      JWT_SECRET: supersecretkey
+      PORT: 4003
+    depends_on:
+      - db
+
+  # Frontend
+  frontend:
+    build: ./frontend/cloudretail-frontend
+    container_name: cloudretail-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+
+volumes:
+  db_data:
