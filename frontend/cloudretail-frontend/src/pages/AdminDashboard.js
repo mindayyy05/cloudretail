@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { fetchProducts, createProduct, uploadProductImage, updateStock, fetchUsers, deleteUser, updateUser } from '../api';
+import { fetchProducts, createProduct, uploadProductImage, updateStock, fetchUsers, deleteUser, updateUser, fetchAdminOrders, updateOrderStatus } from '../api';
 import './AdminDashboard.css';
 
 const CATEGORIES = [
@@ -158,21 +158,11 @@ function AdminDashboard() {
             setLoadingOrders(true);
             setOrdersError('');
 
-            const response = await fetch('http://localhost:4004/api/v1/admin/orders', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load orders');
-            }
-
-            const data = await response.json();
+            const data = await fetchAdminOrders();
             setOrders(data);
         } catch (err) {
             console.error('fetchAllOrders error', err);
-            setOrdersError(err.message || 'Failed to load orders. Please try again.');
+            setOrdersError(err.response?.data?.message || err.message || 'Failed to load orders. Please try again.');
         } finally {
             setLoadingOrders(false);
         }
@@ -291,24 +281,13 @@ function AdminDashboard() {
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             const token = localStorage.getItem('admin_jwt');
-            const response = await fetch(`http://localhost:4004/api/v1/admin/orders/${orderId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to update status');
-            }
+            await updateOrderStatus(orderId, newStatus);
 
             // Refresh orders
             fetchAllOrders(token);
         } catch (err) {
             console.error('handleStatusUpdate error', err);
-            alert('Failed to update order status');
+            alert(err.response?.data?.message || 'Failed to update order status');
         }
     };
 

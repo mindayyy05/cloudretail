@@ -9,8 +9,8 @@ const PRODUCT_BASE = process.env.REACT_APP_PRODUCT_URL || `${API_HOST}:4002`;
 const ORDER_BASE = process.env.REACT_APP_ORDER_URL || `${API_HOST}:4004`;
 
 // Helper to attach JWT automatically
-function authHeaders() {
-  const token = localStorage.getItem('jwt');
+function authHeaders(admin = false) {
+  const token = admin ? localStorage.getItem('admin_jwt') : localStorage.getItem('jwt');
   if (!token) return {};
   return {
     Authorization: `Bearer ${token}`,
@@ -235,6 +235,22 @@ export async function submitItemFeedback(orderItemId, rating, feedback) {
     `${ORDER_BASE}/api/v1/orders/items/${orderItemId}/feedback`,
     { rating, feedback },
     { headers: authHeaders() }
+  );
+  return res.data;
+}
+
+export async function fetchAdminOrders() {
+  const res = await axios.get(`${ORDER_BASE}/api/v1/admin/orders`, {
+    headers: authHeaders(true)
+  });
+  return res.data;
+}
+
+export async function updateOrderStatus(orderId, status) {
+  const res = await axios.put(
+    `${ORDER_BASE}/api/v1/admin/orders/${orderId}/status`,
+    { status },
+    { headers: authHeaders(true) }
   );
   return res.data;
 }

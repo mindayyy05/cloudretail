@@ -27,7 +27,8 @@ function AdminOrders() {
             setLoading(true);
             setError('');
 
-            const response = await fetch('http://localhost:4001/api/v1/admin/orders', {
+            const API_HOST = 'http://' + window.location.hostname;
+            const response = await fetch(`${API_HOST}:4004/api/v1/admin/orders`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },
