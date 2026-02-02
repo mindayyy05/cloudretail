@@ -1,13 +1,26 @@
 // order-service/src/app.js
 require('dotenv').config();
 const express = require('express');
+const AWSXRay = require('aws-xray-sdk');
 const cors = require('cors');
 
-const { createOrder, getUserOrders, getOrderById, getAllOrders, updateOrderStatus, updateItemFeedback } = require('./orderController');
+// Capture outgoing HTTP calls
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https'));
+
+const helmet = require('helmet');
+
+const { createOrder, createOrderAsync, getUserOrders, getOrderById, getAllOrders, updateOrderStatus, updateItemFeedback } = require('./orderController');
 const logger = require('./logger');
 const client = require('prom-client');
 
 const app = express();
+
+// AWS X-Ray - Start segment (MUST BE FIRST)
+app.use(AWSXRay.express.openSegment('order-service'));
+
+// Security Hardening
+app.use(helmet());
 
 // Metrics Setup
 const collectDefaultMetrics = client.collectDefaultMetrics;
@@ -49,7 +62,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'order-service' });
 });
 
-app.post('/api/v1/orders', auth, createOrder); // Auth optional? Plan said createOrder takes user from token, but previous code defaulted to 1. Let's make sure we use auth middleware if we want real user IDs.
+app.post('/api/v1/orders', auth, createOrderAsync); // Expert Upgrade: Asynchronous SQS Processing
 app.get('/api/v1/orders', auth, getUserOrders);
 app.get('/api/v1/orders/:orderId', auth, getOrderById);
 app.put('/api/v1/orders/items/:orderItemId/feedback', auth, updateItemFeedback);
@@ -57,5 +70,8 @@ app.put('/api/v1/orders/items/:orderItemId/feedback', auth, updateItemFeedback);
 // Admin Routes
 app.get('/api/v1/admin/orders', authRequired, adminOnly, getAllOrders);
 app.put('/api/v1/admin/orders/:orderId/status', authRequired, adminOnly, updateOrderStatus);
+
+// AWS X-Ray - End segment (MUST BE LAST)
+app.use(AWSXRay.express.closeSegment());
 
 module.exports = app;

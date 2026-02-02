@@ -63,26 +63,32 @@ exports.login = async (req, res) => {
 
 // --- MFA IMPLEMENTATION (Basic Email/SMS OTP Flow) ---
 
-// In-memory store for OTPs (For demonstration purposes. In prod, use Redis or DB)
-const otpStore = new Map();
+const redis = require('redis');
+const redisClient = redis.createClient({
+  url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+});
+
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+
+(async () => {
+  await redisClient.connect();
+  console.log('Connected to Redis for OTP storage');
+})();
 
 exports.generateOTP = async (req, res) => {
   try {
-    // Ideally user is authenticated via temp token or just email
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email required' });
 
-    // Verify user exists
     const [rows] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
-    // Generate 6-digit code
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore.set(email, { code: otp, expires: Date.now() + 300000 }); // 5 min expiry
 
-    // In a real app, send via AWS SES or Twilio
-    console.log(`[MFA] OTP for ${email}: ${otp}`);
+    // Store in Redis with 5 min (300 sec) expiry
+    await redisClient.set(`otp:${email}`, otp, { EX: 300 });
 
+    console.log(`[MFA] OTP for ${email}: ${otp} (Stored in Redis)`);
     res.json({ message: 'OTP sent to email (checked server logs)', status: 'sent' });
   } catch (err) {
     console.error('generateOTP error', err);
@@ -94,21 +100,15 @@ exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    const record = otpStore.get(email);
-    if (!record) return res.status(400).json({ message: 'No OTP requested or expired' });
+    const storedOtp = await redisClient.get(`otp:${email}`);
+    if (!storedOtp) return res.status(400).json({ message: 'No OTP requested or expired' });
 
-    if (Date.now() > record.expires) {
-      otpStore.delete(email);
-      return res.status(400).json({ message: 'OTP expired' });
-    }
-
-    if (record.code !== otp) {
+    if (storedOtp !== otp) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
 
-    // OTP Valid
-    otpStore.delete(email);
-
+    // OTP Valid - Delete from Redis
+    await redisClient.del(`otp:${email}`);
     // If this was part of login, we would issue the JWT here.
     // For this proof-of-concept, we just confirm verification.
     res.json({ message: 'MFA Verification Successful', verified: true });

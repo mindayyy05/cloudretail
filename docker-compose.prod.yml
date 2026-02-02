@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Auth Service
   auth-service:
-    build: ./auth-service
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-auth-service:latest
     container_name: cloudretail-auth
     ports:
       - "4001:4001"
@@ -17,7 +17,7 @@ services:
 
   # Product Service
   product-service:
-    build: ./product-service
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-product-service:latest
     container_name: cloudretail-product
     ports:
       - "4002:4002"
@@ -31,7 +31,7 @@ services:
 
   # Order Service
   order-service:
-    build: ./order-service
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-order-service:latest
     container_name: cloudretail-order
     ports:
       - "4004:4004"
@@ -48,7 +48,7 @@ services:
 
   # Inventory Service
   inventory-service:
-    build: ./inventory-service
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-inventory-service:latest
     container_name: cloudretail-inventory
     ports:
       - "4003:4003"
@@ -62,7 +62,7 @@ services:
 
   # Gateway Service
   gateway-service:
-    build: ./gateway-service
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-gateway-service:latest
     container_name: cloudretail-gateway
     ports:
       - "4000:4000"
@@ -78,12 +78,12 @@ services:
       - order-service
       - inventory-service
 
-  # Frontend (Served via simple Nginx or just static files usually, but keeping container if needed)
+  # Frontend
   frontend:
-    build: ./frontend/cloudretail-frontend
+    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-frontend:latest
     container_name: cloudretail-frontend
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - auth-service
       - product-service

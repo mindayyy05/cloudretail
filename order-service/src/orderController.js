@@ -1,8 +1,10 @@
 // order-service/src/orderController.js
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
+const AWSXRay = require('aws-xray-sdk');
+const { EventBridgeClient, PutEventsCommand } = AWSXRay.captureAWSv3Client(require("@aws-sdk/client-eventbridge"));
 const db = require('./db');
 const axios = require('axios');
 const axiosRetry = require('axios-retry').default;
+const orderProducer = require('./orderProducer'); // NEW: SQS Producer
 
 // Configure Retries and Timeouts (Resiliency)
 axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
@@ -13,6 +15,8 @@ const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 
 // Initialize EventBridge client
 const eventBridge = new EventBridgeClient({ region: AWS_REGION });
+
+const CBOpossum = require('opossum');
 
 /**
  * MOCK EXTERNAL API INTEGRATION
@@ -36,31 +40,53 @@ async function callExternalPaymentGateway(amount, orderId) {
   });
 }
 
+// Circuit Breaker Options
+const breakerOptions = {
+  timeout: 3000, // If function takes longer than 3 seconds, trigger failure
+  errorThresholdPercentage: 50, // If 50% of requests fail, open circuit
+  resetTimeout: 10000 // After 10 seconds, try again (half-open)
+};
+
+// Global Circuit Breaker (Shared across all requests to track state)
+const paymentBreaker = new CBOpossum(callExternalPaymentGateway, breakerOptions);
+paymentBreaker.fallback(() => ({ status: 'failed', message: 'Payment Service Unavailable (Circuit Open)' }));
+
 // AWS EventBridge Event Publication
 async function publishEvent(detailType, detail, correlationId) {
   const eventEnvelope = {
     'detail-type': detailType,
-    source: 'com.cloudretail.order',
+    source: 'cloudretail.order',
     time: new Date().toISOString(),
     detail: detail,
-    correlationId // Include in event payload for Consumers
+    correlationId
   };
 
   console.log(`[OrderService] [${correlationId}] Publishing Event: ${detailType}`);
 
   if (process.env.USE_AWS_SDK === 'true') {
-    // ... AWS SDK setup (omitted for brevity, would add TraceHeader) ...
-    // For demo, we just log.
-  } else {
-    // In Local Dev:
+    // REAL AWS EVENTBRIDGE INTEGRATION
     try {
-      await axios.post(`${PRODUCT_SERVICE_URL}/events`, eventEnvelope, {
-        headers: { 'x-correlation-id': correlationId }
+      const command = new PutEventsCommand({
+        Entries: [
+          {
+            Source: 'cloudretail.order',
+            DetailType: detailType,
+            Detail: JSON.stringify(detail),
+            EventBusName: process.env.EVENT_BUS_NAME || 'cloudretail-bus',
+          },
+        ],
       });
-      console.log(`[OrderService] [${correlationId}] Local: Event published successfully.`);
+      await eventBridge.send(command);
+      console.log(`[OrderService] [${correlationId}] Event successfully sent to AWS EventBridge`);
     } catch (err) {
-      console.error(`[OrderService] [${correlationId}] Local: Failed to publish event:`, err.message);
+      console.error(`[OrderService] [${correlationId}] Failed to send event to AWS EventBridge:`, err.message);
     }
+  } else {
+    // In Local Dev Fallback (Fire and Forget)
+    axios.post(`${PRODUCT_SERVICE_URL}/events`, eventEnvelope, {
+      headers: { 'x-correlation-id': correlationId }
+    }).catch(err => { });
+    console.log(`[OrderService] [${correlationId}] Local: Event broadcasted via HTTP Fallback.`);
   }
 }
 
@@ -83,6 +109,12 @@ exports.createOrder = async (req, res) => {
     if (!userId) {
       // Should be caught by auth middleware, but safety check
       return res.status(401).json({ message: 'Unauthorized: User ID not found' });
+    }
+
+    // VERIFY USER EXISTS IN auth_db (Prevents using stale tokens from other DBs like local dev)
+    const [userCheck] = await db.query('SELECT id FROM auth_db.users WHERE id = ?', [userId]);
+    if (userCheck.length === 0) {
+      return res.status(401).json({ message: 'Session expired or user not found. Please log out and log in again.' });
     }
 
     if (userRole === 'ADMIN') {
@@ -161,21 +193,6 @@ exports.createOrder = async (req, res) => {
         );
       }
 
-      const CBOpossum = require('opossum');
-
-      // Circuit Breaker Options
-      const breakerOptions = {
-        timeout: 3000, // If function takes longer than 3 seconds, trigger failure
-        errorThresholdPercentage: 50, // If 50% of requests fail, open circuit
-        resetTimeout: 10000 // After 10 seconds, try again (half-open)
-      };
-
-      // Wrapped Payment Function
-      const paymentBreaker = new CBOpossum(callExternalPaymentGateway, breakerOptions);
-      paymentBreaker.fallback(() => ({ status: 'failed', message: 'Payment Service Unavailable (Circuit Open)' }));
-
-      // ... (inside createOrder)
-
       // 1) NEW: Call External Payment Gateway (via Circuit Breaker)
       // This satisfies the "Circuit breaker" requirement
       const paymentResult = await paymentBreaker.fire(totalAmount, orderId);
@@ -225,6 +242,39 @@ exports.createOrder = async (req, res) => {
   } catch (err) {
     console.error('createOrder outer error', err);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// --- GDPR / COMPLIANCE ---
+/**
+ * GET /api/v1/orders/export
+ * GDPR Requirement: Right to data portability
+ */
+exports.exportUserData = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const conn = await db.getConnection();
+    try {
+      const [user] = await conn.query('SELECT first_name, last_name, email, role, created_at FROM auth_db.users WHERE id = ?', [userId]);
+      const [orders] = await conn.query('SELECT * FROM orders WHERE user_id = ?', [userId]);
+
+      const exportData = {
+        metadata: {
+          exported_at: new Date().toISOString(),
+          regulation: "GDPR - Article 20 (Data Portability)"
+        },
+        user_profile: user[0],
+        order_history: orders
+      };
+
+      res.setHeader('Content-disposition', 'attachment; filename=my_data.json');
+      res.set('Content-Type', 'application/json');
+      return res.send(JSON.stringify(exportData, null, 2));
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    res.status(500).json({ message: 'Export failed' });
   }
 };
 
@@ -440,5 +490,57 @@ exports.updateItemFeedback = async (req, res) => {
   } catch (err) {
     console.error('updateItemFeedback error', err);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// --- EXPERT UPGRADE: Asynchronous Order Flow (SQS) ---
+exports.createOrderAsync = async (req, res) => {
+  try {
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!items.length) return res.status(400).json({ message: 'No items in order' });
+
+    const userId = (req.user && req.user.userId) ? req.user.userId : null;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    // Validate and Normalise
+    const normalised = items.map(it => ({
+      productId: Number(it.product_id),
+      quantity: Number(it.quantity),
+      price: Number(it.price)
+    }));
+
+    const totalAmount = normalised.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+
+    // Prepare payload for SQS (matches orderWorker.js processOrder)
+    const orderPayload = {
+      userId,
+      items: normalised,
+      totalAmount,
+      shipping: {
+        name: req.body.shipping_name,
+        address: req.body.shipping_address,
+        city: req.body.shipping_city,
+        zip: req.body.shipping_zip,
+        country: req.body.shipping_country
+      },
+      payment: {
+        method: req.body.payment_method || 'EXTERNAL_MOCK',
+        date: req.body.delivery_date
+      },
+      correlationId: req.correlationId || `corr_${Date.now()}`
+    };
+
+    console.log(`[OrderService] [${orderPayload.correlationId}] Queuing order for async processing...`);
+
+    // Send to SQS
+    await orderProducer.queueOrder(orderPayload);
+
+    return res.status(202).json({
+      message: 'Order accepted and is being processed.',
+      correlationId: orderPayload.correlationId
+    });
+  } catch (err) {
+    console.error('createOrderAsync error', err);
+    return res.status(500).json({ message: 'Internal server error: ' + err.message });
   }
 };

@@ -1,13 +1,27 @@
 // product-service/src/app.js
 require('dotenv').config();
 const express = require('express');
+const AWSXRay = require('aws-xray-sdk');
 const cors = require('cors');
 const multer = require('multer');
+const { S3Client } = require('@aws-sdk/client-s3');
+const multerS3 = require('multer-s3');
 const path = require('path');
 const fs = require('fs');
 
+// Capture outgoing HTTP calls
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https'));
+
+// Initialize S3 Client (Instrumented with X-Ray)
+const s3 = AWSXRay.captureAWSv3Client(new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1'
+}));
+
 // NOTE: auth middleware disabled for demo to avoid "Invalid token" issues
 const { authRequired, detectUser } = require('./middleware/auth');
+const helmet = require('helmet');
+const client = require('prom-client');
 const {
   listProducts, getProduct, createProduct, getSuggestions,
   getReviews, addReview,
@@ -18,16 +32,31 @@ const {
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// AWS X-Ray - Start segment (MUST BE FIRST)
+app.use(AWSXRay.express.openSegment('product-service'));
 
-// Correlation ID Middleware
+// Security Hardening
+app.use(helmet());
+
+// Metrics Setup
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics({ register: client.register });
+
+// Correlation ID Middleware (Distributed Tracing)
 app.use((req, res, next) => {
   const correlationId = req.headers['x-correlation-id'] || `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   req.correlationId = correlationId;
   res.setHeader('x-correlation-id', correlationId);
   console.log(`[ProductService] [${correlationId}] Request: ${req.method} ${req.path}`);
   next();
+});
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/metrics', async (req, res) => {
+  res.setHeader('Content-Type', client.register.contentType);
+  res.send(await client.register.metrics());
 });
 
 /* ---------- Static serving for uploaded images ---------- */
@@ -42,16 +71,17 @@ if (!fs.existsSync(uploadsPath)) {
 // Expose /uploads so frontend can load images
 app.use('/uploads', express.static(uploadsPath));
 
-/* ---------- Multer setup for image uploads ---------- */
+/* ---------- Multer setup for S3 Image Uploads ---------- */
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsPath);
-  },
-  filename: (req, file, cb) => {
+const storage = multerS3({
+  s3: s3,
+  bucket: process.env.S3_BUCKET_NAME || 'cloudretail-media-525945693121',
+  acl: 'public-read',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+  key: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
+    cb(null, `products/${uniqueSuffix}${ext}`);
   },
 });
 
@@ -68,8 +98,10 @@ app.post('/api/v1/products/upload-image', upload.single('image'), (req, res) => 
     return res.status(400).json({ message: 'No file uploaded' });
   }
 
-  const publicUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  // multer-s3 provides the location (S3 URL) in req.file.location
+  const publicUrl = req.file.location;
 
+  console.log(`[ProductService] Image uploaded to S3: ${publicUrl}`);
   return res.status(201).json({ imageUrl: publicUrl });
 });
 
@@ -95,11 +127,14 @@ app.put('/api/v1/products/:id/price', detectUser, require('./productController')
 
 
 // Event Handler (AWS EventBridge Target)
-app.post('/events', handleEvent);
+app.post('/api/v1/products/events', handleEvent);
 
 // Health check
 app.get('/health', (req, res) =>
   res.json({ status: 'ok', service: 'product-service' })
 );
+
+// AWS X-Ray - End segment (MUST BE LAST)
+app.use(AWSXRay.express.closeSegment());
 
 module.exports = app;

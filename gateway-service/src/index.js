@@ -1,9 +1,22 @@
 const express = require('express');
+const AWSXRay = require('aws-xray-sdk');
 const cors = require('cors');
 const proxy = require('express-http-proxy');
+
+// Capture outgoing HTTP calls (including proxy requests)
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https'));
 const jwt = require('jsonwebtoken');
 
+const helmet = require('helmet');
+
 const app = express();
+
+// AWS X-Ray - Start segment (MUST BE FIRST)
+app.use(AWSXRay.express.openSegment('gateway-service'));
+
+// Security Hardening (Header Protection)
+app.use(helmet());
 const { v4: uuidv4 } = require('uuid');
 
 // Distributed Tracing (Correlation ID)
@@ -26,12 +39,16 @@ const corsOptions = {
         const allowedOrigins = [
             'http://localhost:3000', // Frontend
             'http://localhost:4000', // Gateway (Self)
-            'http://127.0.0.1:3000'
+            'http://127.0.0.1:3000',
+            'http://cloudretail-frontend-bucket-525945693121.s3-website-us-east-1.amazonaws.com',
+            'https://d2m5mznbbrqsnu.cloudfront.net',
+            'http://d2m5mznbbrqsnu.cloudfront.net'
         ];
 
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== 'production' || !origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            console.warn(`Blocked by CORS: ${origin}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
@@ -165,6 +182,9 @@ app.use('/api/v1/inventory', proxy(INVENTORY_SERVICE, {
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'gateway-service' });
 });
+
+// AWS X-Ray - End segment (MUST BE LAST)
+app.use(AWSXRay.express.closeSegment());
 
 app.listen(PORT, () => {
     console.log(`API Gateway running on port ${PORT}`);

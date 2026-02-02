@@ -1,27 +1,26 @@
-output "vpc_id" {
-  value = aws_vpc.main.id
+# Outputs
+
+output "alb_dns_name" {
+  description = "The DNS name of the load balancer"
+  value       = aws_lb.main.dns_name
 }
 
 output "rds_endpoint" {
-  value = aws_db_instance.main.endpoint
+  description = "The endpoint of the RDS database"
+  value       = aws_db_instance.main.endpoint
 }
 
-output "ec2_public_ip" {
-  value = aws_instance.app_server.public_ip
-}
-
-output "ec2_ssh_command" {
-  value = "ssh -i YOUR_KEY.pem ec2-user@${aws_instance.app_server.public_ip}"
+output "redis_endpoint" {
+  description = "The endpoint of the Redis cluster"
+  value       = aws_elasticache_cluster.redis.cache_nodes[0].address
 }
 
 output "cloudfront_domain_name" {
-  value = aws_cloudfront_distribution.s3_distribution.domain_name
+  description = "The domain name of the CloudFront distribution"
+  value       = aws_cloudfront_distribution.s3_distribution.domain_name
 }
 
-output "s3_bucket_name" {
-  value = aws_s3_bucket.frontend.id
-}
-
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.main.name
+output "bastion_public_ip" {
+  description = "Public IP of the Bastion/Standalone instance"
+  value       = aws_instance.app_server.public_ip
 }

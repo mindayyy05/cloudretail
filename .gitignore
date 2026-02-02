@@ -8,3 +8,15 @@ coverage/
 .vscode/
 *.pem
 *.log
+
+# Terraform
+.terraform/
+terraform.tfstate*
+*.tfplan
+tfplan
+
+# Binary/Large files
+*.pkg
+*.zip
+*.tar.gz
+

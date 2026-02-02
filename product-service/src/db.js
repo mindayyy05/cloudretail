@@ -1,18 +1,27 @@
-// product-service/src/db.js
-const mysql = require('mysql2/promise');
+const AWSXRay = require('aws-xray-sdk');
+const mysql = AWSXRay.captureMySQL(require('mysql2/promise'));
 
-// For this assignment we connect directly to the `cloudretail` DB
-// (the one you see in phpMyAdmin).
-// You can still override host/user/password with env vars if you want.
-const pool = mysql.createPool({
-  host: process.env.DB_HOST_MAIN || 'localhost',
-  port: Number(process.env.DB_PORT_MAIN) || 3306,
-  user: process.env.DB_USER_MAIN || 'root',
-  password: process.env.DB_PASS_MAIN || 'your_password', // <-- put your real MySQL password
-  database: process.env.DB_NAME_MAIN || 'product_db',   // <-- Use env var
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+let pool;
 
-module.exports = pool;
+function getPool() {
+  if (!pool) {
+    console.log('[ProductService] Initializing DB Pool...');
+    pool = mysql.createPool({
+      host: process.env.DB_HOST_MAIN || 'localhost',
+      port: Number(process.env.DB_PORT_MAIN) || 3306,
+      user: process.env.DB_USER_MAIN || 'root',
+      password: process.env.DB_PASS_MAIN || 'your_password',
+      database: process.env.DB_NAME_MAIN || 'product_db',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+    });
+  }
+  return pool;
+}
+
+module.exports = {
+  query: (...args) => getPool().query(...args),
+  execute: (...args) => getPool().execute(...args),
+  getConnection: (...args) => getPool().getConnection(...args),
+};

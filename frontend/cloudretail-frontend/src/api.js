@@ -2,11 +2,18 @@
 import axios from 'axios';
 
 // Product Service runs on port 4002, Auth on 4001, Order on 4004
-const API_HOST = 'http://' + window.location.hostname;
+// Product Service runs on port 4002, Auth on 4001, Order on 4004
+// When deployed, we point to the Load Balancer (ALB) which hits the Gateway on port 80
+const ALB_URL = 'http://cloudretail-alb-1680329126.us-east-1.elb.amazonaws.com';
+const API_URL = process.env.REACT_APP_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost' : ALB_URL);
 
-const AUTH_BASE = process.env.REACT_APP_AUTH_URL || `${API_HOST}:4001`;
-const PRODUCT_BASE = process.env.REACT_APP_PRODUCT_URL || `${API_HOST}:4002`;
-const ORDER_BASE = process.env.REACT_APP_ORDER_URL || `${API_HOST}:4004`;
+// Routes now go through the Gateway (port 80 via ALB or 4000 locally)
+const GW_PORT = window.location.hostname === 'localhost' ? ':4000' : '';
+
+export const AUTH_BASE = process.env.REACT_APP_AUTH_URL || `${API_URL}${GW_PORT}`;
+export const PRODUCT_BASE = process.env.REACT_APP_PRODUCT_URL || `${API_URL}${GW_PORT}`;
+export const ORDER_BASE = process.env.REACT_APP_ORDER_URL || `${API_URL}${GW_PORT}`;
+export const INVENTORY_BASE = process.env.REACT_APP_INVENTORY_URL || `${API_URL}${GW_PORT}`;
 
 // Helper to attach JWT automatically
 function authHeaders(admin = false) {
@@ -252,5 +259,13 @@ export async function updateOrderStatus(orderId, status) {
     { status },
     { headers: authHeaders(true) }
   );
+  return res.data;
+}
+
+export async function exportUserData() {
+  const res = await axios.get(`${ORDER_BASE}/api/v1/orders/export`, {
+    headers: authHeaders(),
+    responseType: 'blob' // Important for binary/json files
+  });
   return res.data;
 }

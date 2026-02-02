@@ -1,6 +1,7 @@
 // src/pages/AdminOrders.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ORDER_BASE } from '../api';
 
 function AdminOrders() {
     const navigate = useNavigate();
@@ -27,8 +28,7 @@ function AdminOrders() {
             setLoading(true);
             setError('');
 
-            const API_HOST = 'http://' + window.location.hostname;
-            const response = await fetch(`${API_HOST}:4004/api/v1/admin/orders`, {
+            const response = await fetch(`${ORDER_BASE}/api/v1/admin/orders`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },

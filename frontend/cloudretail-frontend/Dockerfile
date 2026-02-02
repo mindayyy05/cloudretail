@@ -9,18 +9,24 @@ RUN npm run build
 # Production Stage
 FROM nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html
-# Copy custom nginx config if we had one, but default is okay for simple static serve.
-# We might need to handle React Router (SPA) 404s by routing everything to index.html.
-# For now, let's use a simple config override inline or rely on default but standard SPA needs try_files.
-# Let's add a simple default.conf
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-    root /usr/share/nginx/html; \
-    index index.html index.htm; \
-    try_files $uri $uri/ /index.html; \
-    } \
-    }' > /etc/nginx/conf.d/default.conf
+
+# Create a robust Nginx configuration for SPA and API proxying
+RUN printf "server { \n\
+    listen 80; \n\
+    location / { \n\
+    root /usr/share/nginx/html; \n\
+    index index.html index.htm; \n\
+    try_files \$uri \$uri/ /index.html; \n\
+    } \n\
+    # Proxy API requests to the Gateway Service \n\
+    location /api/ { \n\
+    proxy_pass http://cloudretail-gateway:4000; \n\
+    proxy_set_header Host \$host; \n\
+    proxy_set_header X-Real-IP \$remote_addr; \n\
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; \n\
+    proxy_set_header X-Forwarded-Proto \$scheme; \n\
+    } \n\
+    }" > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

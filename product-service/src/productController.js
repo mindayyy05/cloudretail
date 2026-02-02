@@ -1,5 +1,17 @@
 // product-service/src/productController.js
 const db = require('./db');
+const redis = require('redis');
+
+const redisClient = redis.createClient({
+  url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+});
+
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+
+(async () => {
+  await redisClient.connect();
+  console.log('Connected to Redis for Product Caching');
+})();
 
 // GET /api/v1/products
 // --- MOCK EVENT PUBLISHER (Internal) ---
@@ -19,6 +31,10 @@ exports.updateProduct = async (req, res) => {
     // Update DB
     await db.query('UPDATE products SET price = ? WHERE id = ?', [price, id]);
 
+    // Invalidate cache
+    await redisClient.del(`product:${id}`);
+    await redisClient.del('products:list:*'); // Simple broad invalidation for lists
+
     // Publish Event
     await publishProductEvent('ProductPriceUpdated', { productId: id, newPrice: price, timestamp: new Date().toISOString() });
 
@@ -33,6 +49,15 @@ exports.listProducts = async (req, res) => {
   try {
     const { search, category, sort, min_price, max_price } = req.query;
     const userId = req.user ? req.user.userId : null;
+
+    // Create a cache key based on query params
+    const cacheKey = `products:list:${JSON.stringify(req.query)}:${userId || 'anon'}`;
+
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      console.log('[ProductService] Returning cached product list');
+      return res.json(JSON.parse(cachedData));
+    }
 
     let sql = `SELECT p.id, p.name, p.description, p.price, p.category, p.brand, p.image_url, p.created_at,
                p.quantity,
@@ -92,6 +117,9 @@ exports.listProducts = async (req, res) => {
       stock_status: p.quantity === 0 ? 'out_of_stock' : p.quantity <= 5 ? 'low_stock' : 'in_stock'
     }));
 
+    // Cache for 2 minutes
+    await redisClient.set(cacheKey, JSON.stringify(productsWithStock), { EX: 120 });
+
     res.json(productsWithStock);
   } catch (err) {
     console.error('listProducts error', err);
@@ -104,6 +132,13 @@ exports.getProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user ? req.user.userId : null;
+
+    const cacheKey = `product:${id}:${userId || 'anon'}`;
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      console.log(`[ProductService] Returning cached product ${id}`);
+      return res.json(JSON.parse(cachedData));
+    }
 
     let sql = `SELECT p.id, p.name, p.description, p.price, p.category, p.brand, p.image_url, p.created_at,
                p.quantity,
@@ -141,6 +176,9 @@ exports.getProduct = async (req, res) => {
       console.error('Error fetching product images', imgErr);
       product.images = [{ id: 0, image_url: product.image_url, is_primary: true }];
     }
+
+    // Cache for 5 minutes
+    await redisClient.set(cacheKey, JSON.stringify(product), { EX: 300 });
 
     res.json(product);
   } catch (err) {
@@ -460,41 +498,60 @@ exports.handleEvent = async (req, res) => {
   }
 };
 
+const CBOpossum = require('opossum');
+
 // GET /api/v1/products/rates
-// EXTERNAL API INTEGRATION
+// EXTERNAL API INTEGRATION with Circuit Breaker
+const EXTERNAL_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
+
+async function fetchExchangeRatesExternal() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+  try {
+    const response = await fetch(EXTERNAL_API_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`External API returned status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+const breakerOptions = {
+  timeout: 4000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 15000
+};
+
+const exchangeRateBreaker = new CBOpossum(fetchExchangeRatesExternal, breakerOptions);
+
+// Fallback rates in case external API fails or circuit is open
+const fallbackRates = {
+  base: 'USD',
+  date: new Date().toISOString().split('T')[0],
+  rates: { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 148.5, AUD: 1.52, LKR: 310.0 }
+};
+
+exchangeRateBreaker.fallback(() => ({ source: 'fallback (circuit-open)', ...fallbackRates }));
+
 exports.getExchangeRates = async (req, res) => {
   try {
-    const EXTERNAL_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
+    console.log(`[ProductService] Fetching exchange rates via Circuit Breaker`);
+    const data = await exchangeRateBreaker.fire();
 
-    // Default fallback rates in case external API fails
-    const fallbackRates = {
-      base: 'USD',
-      date: new Date().toISOString().split('T')[0],
-      rates: { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 148.5 }
-    };
-
-    console.log(`[ProductService] Fetching exchange rates from ${EXTERNAL_API_URL}`);
-
-    // Set a timeout for the external request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
-    try {
-      const response = await fetch(EXTERNAL_API_URL, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`External API returned status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      res.json({ source: 'external', ...data });
-    } catch (fetchErr) {
-      console.error('[ProductService] External API failed, using fallback:', fetchErr.message);
-      res.json({ source: 'fallback', error: fetchErr.message, ...fallbackRates });
+    if (data.source === 'fallback (circuit-open)') {
+      return res.json(data);
     }
+
+    res.json({ source: 'external', ...data });
   } catch (err) {
-    console.error('getExchangeRates error', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('[ProductService] Currency API failed:', err.message);
+    res.json({ source: 'fallback (error)', ...fallbackRates });
   }
 };

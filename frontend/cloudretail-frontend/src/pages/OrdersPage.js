@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchOrders, submitItemFeedback } from '../api';
+import { fetchOrders, submitItemFeedback, exportUserData } from '../api';
 
 function OrdersPage() {
     const navigate = useNavigate();
@@ -56,6 +56,21 @@ function OrdersPage() {
         }
     };
 
+    const handleExportData = async () => {
+        try {
+            const blob = await exportUserData();
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'my_cloudretail_data.json');
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+        } catch (err) {
+            alert('Failed to export data');
+        }
+    };
+
     if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading orders...</div>;
     if (error) return <div style={{ padding: '40px', textAlign: 'center', color: 'red' }}>{error}</div>;
 
@@ -74,7 +89,14 @@ function OrdersPage() {
 
     return (
         <div className="checkout-page">
-            <h1>My Orders</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h1>My Orders</h1>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button className="btn-secondary" onClick={handleExportData} title="GDPR: Download your profile and order history">
+                        📥 Download My Data (GDPR)
+                    </button>
+                </div>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {orders.map(order => (
                     <div key={order.id} className="checkout-section" style={{ padding: '24px' }}>

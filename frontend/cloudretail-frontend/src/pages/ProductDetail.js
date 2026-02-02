@@ -23,6 +23,8 @@ function ProductDetail() {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState(null);
+  const [targetCurrency, setTargetCurrency] = useState('USD');
 
   useEffect(() => {
     async function loadProductAndRecs() {
@@ -61,6 +63,18 @@ function ProductDetail() {
     }
 
     loadProductAndRecs();
+
+    // THIRD-PARTY API INTEGRATION: Fetch currency rates
+    async function fetchRates() {
+      try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const data = await res.json();
+        setExchangeRate(data.rates);
+      } catch (err) {
+        console.error('Failed to fetch currency rates');
+      }
+    }
+    fetchRates();
   }, [id]);
 
   const handleAddToCart = () => {
@@ -243,6 +257,31 @@ function ProductDetail() {
             <div className="product-detail-price">
               ${Number(product.price).toFixed(2)}
             </div>
+
+            {/* THIRD-PARTY API: Currency Converter UI */}
+            {exchangeRate && (
+              <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0', marginBottom: '20px' }}>
+                <div style={{ fontSize: '13px', color: '#166534', marginBottom: '8px', fontWeight: '600' }}>
+                  🌐 International Customer? Convert Price:
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <select
+                    value={targetCurrency}
+                    onChange={(e) => setTargetCurrency(e.target.value)}
+                    style={{ padding: '4px', borderRadius: '4px', border: '1px solid #166534' }}
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="AUD">AUD (A$)</option>
+                    <option value="LKR">LKR (Rs.)</option>
+                  </select>
+                  <span style={{ fontWeight: 'bold' }}>
+                    {targetCurrency} {(product.price * (exchangeRate[targetCurrency] || 1)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="product-detail-rating-summary">
               <span className="stars">{renderStars(product.avg_rating || 0)}</span>
               <span className="count">({product.review_count || 0} reviews)</span>
