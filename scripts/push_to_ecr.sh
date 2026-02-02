@@ -43,8 +43,8 @@ for entry in "${services[@]}"; do
     fi
 
     # Build
-    echo "Building image..."
-    docker build -t $repo_name ./$folder
+    echo "Building image for linux/amd64..."
+    docker build --platform linux/amd64 -t $repo_name ./$folder
     
     # Tag
     echo "Tagging image..."

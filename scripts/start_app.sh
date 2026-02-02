@@ -8,11 +8,11 @@ echo "Starting CloudRetail Services..."
 # 1. Ensure we are in the project root
 # cd /home/ec2-user/cloudretail
 
-# 2. Pull latest images (optional, but recommended if you just pushed to ECR)
-# docker-compose -f docker-compose.prod.yml pull
+# 2. Pull latest images (CRITICAL to get the new x86 architecture images)
+docker-compose -f docker-compose.prod.yml pull
 
 # 3. Start the stack
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml up -d --remove-orphans
 
 echo "------------------------------------------------"
 echo "Services started in background."
