@@ -18,6 +18,9 @@ services=(
     "frontend/cloudretail-frontend:cloudretail-frontend"
 )
 
+# Use a specific tag to avoid cache issues on the server
+TAG="prod-v1"
+
 echo "Logging into AWS ECR..."
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REPO_URL
 
@@ -45,9 +48,9 @@ for entry in "${services[@]}"; do
     # Build and Push using buildx (Multi-platform support)
     echo "Building and Pushing for linux/amd64 using buildx..."
     # --provenance=false is critical to avoid multi-arch manifest list confusion in some environments
-    docker buildx build --platform linux/amd64 --provenance=false -t $REPO_URL/$repo_name:latest ./$folder --push
+    docker buildx build --platform linux/amd64 --provenance=false -t $REPO_URL/$repo_name:$TAG ./$folder --push
     
-    echo "Successfully pushed $repo_name"
+    echo "Successfully pushed $repo_name:$TAG"
 done
 
 echo "----------------------------------------------------------------"
