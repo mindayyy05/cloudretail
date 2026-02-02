@@ -65,7 +65,7 @@ services:
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-gateway-service:latest
     container_name: cloudretail-gateway
     ports:
-      - "4000:4000"
+      - "80:4000"
     environment:
       AUTH_SERVICE_URL: http://auth-service:4001
       PRODUCT_SERVICE_URL: http://product-service:4002
@@ -77,14 +77,3 @@ services:
       - product-service
       - order-service
       - inventory-service
-
-  # Frontend
-  frontend:
-    image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-frontend:latest
-    container_name: cloudretail-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - auth-service
-      - product-service
-      - order-service
