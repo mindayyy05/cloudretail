@@ -8,16 +8,16 @@ const PORT = process.env.PORT || 4004;
 
 async function startServer() {
   await loadSecrets();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`product-service running on port ${PORT}`);
+  });
+
+  server.on('error', (err) => {
+    console.error('Server failed to start:', err);
   });
 }
 
 startServer();
-
-server.on('error', (err) => {
-  console.error('Server failed to start:', err);
-});
 
 // Prevent process from exiting on unhandled rejections
 process.on('unhandledRejection', (reason, promise) => {
