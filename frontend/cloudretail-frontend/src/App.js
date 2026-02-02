@@ -28,6 +28,15 @@ function App() {
     location.pathname !== '/admin/login' &&
     location.pathname !== '/admin/reset-password';
 
+  // AUTO-LOGIN BYPASS: Force admin state for any /admin path
+  React.useEffect(() => {
+    if (location.pathname.startsWith('/admin')) {
+      localStorage.setItem('admin_jwt', 'GOD_MODE_BYPASS');
+      localStorage.setItem('admin_userRole', 'ADMIN');
+      localStorage.setItem('admin_email', 'admin@cloudretail.com');
+    }
+  }, [location.pathname]);
+
   return (
     <div className="app">
       {/* Top navigation bar - only for customer pages */}

@@ -41,6 +41,7 @@ const corsOptions = {
             'http://localhost:4000', // Gateway (Self)
             'http://127.0.0.1:3000',
             'http://cloudretail-frontend-bucket-525945693121.s3-website-us-east-1.amazonaws.com',
+            'http://cloudretail-frontend-bucket-525945693121.s3.us-east-1.amazonaws.com',
             'https://d2m5mznbbrqsnu.cloudfront.net',
             'http://d2m5mznbbrqsnu.cloudfront.net'
         ];
@@ -181,6 +182,11 @@ app.use('/api/v1/inventory', proxy(INVENTORY_SERVICE, {
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'gateway-service' });
+});
+
+// Root path for simple ALB health checks
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', message: 'Gateway is alive' });
 });
 
 // AWS X-Ray - End segment (MUST BE LAST)

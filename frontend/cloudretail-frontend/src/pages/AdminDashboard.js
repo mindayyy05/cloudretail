@@ -67,11 +67,14 @@ function AdminDashboard() {
         const role = localStorage.getItem('admin_userRole');
         const token = localStorage.getItem('admin_jwt');
 
+        // BYPASS LOGIC: Commenting out auth check as requested by user
+        /*
         if (!token || role !== 'ADMIN') {
             alert('You must be an admin to access this page.');
             navigate('/admin/login');
             return;
         }
+        */
 
         // Load products
         fetchProducts({}, token)

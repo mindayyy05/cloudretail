@@ -25,6 +25,9 @@ S3_BUCKET_NAME=cloudretail-media-525945693121
 EOF
 
 # 2. Restart Services to pickup new ENV
+echo "🔄 Pulling latest images from ECR..."
+docker-compose -f docker-compose.prod.yml pull
+
 echo "🔄 Restarting containers..."
 docker-compose -f docker-compose.prod.yml down
 docker-compose -f docker-compose.prod.yml up -d --remove-orphans
