@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # Auth Service
   auth-service:
+    platform: linux/amd64
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-auth-service:latest
     container_name: cloudretail-auth
     ports:
@@ -17,6 +18,7 @@ services:
 
   # Product Service
   product-service:
+    platform: linux/amd64
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-product-service:latest
     container_name: cloudretail-product
     ports:
@@ -31,6 +33,7 @@ services:
 
   # Order Service
   order-service:
+    platform: linux/amd64
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-order-service:latest
     container_name: cloudretail-order
     ports:
@@ -48,6 +51,7 @@ services:
 
   # Inventory Service
   inventory-service:
+    platform: linux/amd64
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-inventory-service:latest
     container_name: cloudretail-inventory
     ports:
@@ -62,6 +66,7 @@ services:
 
   # Gateway Service
   gateway-service:
+    platform: linux/amd64
     image: 525945693121.dkr.ecr.us-east-1.amazonaws.com/cloudretail-gateway-service:latest
     container_name: cloudretail-gateway
     ports:

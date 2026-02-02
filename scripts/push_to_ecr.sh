@@ -42,17 +42,10 @@ for entry in "${services[@]}"; do
         continue
     fi
 
-    # Build
-    echo "Building image for linux/amd64..."
-    docker build --platform linux/amd64 -t $repo_name ./$folder
-    
-    # Tag
-    echo "Tagging image..."
-    docker tag $repo_name:latest $REPO_URL/$repo_name:latest
-    
-    # Push
-    echo "Pushing to ECR..."
-    docker push $REPO_URL/$repo_name:latest
+    # Build and Push using buildx (Multi-platform support)
+    echo "Building and Pushing for linux/amd64 using buildx..."
+    # --provenance=false is critical to avoid multi-arch manifest list confusion in some environments
+    docker buildx build --platform linux/amd64 --provenance=false -t $REPO_URL/$repo_name:latest ./$folder --push
     
     echo "Successfully pushed $repo_name"
 done
