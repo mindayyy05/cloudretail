@@ -10,6 +10,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLogin from './pages/AdminLogin';
+import AdminReset from './pages/AdminReset';
 import AdminDashboard from './pages/AdminDashboard';
 import ProductDetail from './pages/ProductDetail';
 import CartPage from './pages/CartPage';
@@ -22,8 +23,10 @@ import WishlistPage from './pages/WishlistPage';
 function App() {
   const location = useLocation();
 
-  // Don't show Header on admin pages (except login)
-  const isAdminPage = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
+  // Don't show Header on admin pages (except login/reset)
+  const isAdminPage = location.pathname.startsWith('/admin') &&
+    location.pathname !== '/admin/login' &&
+    location.pathname !== '/admin/reset-password';
 
   return (
     <div className="app">
@@ -46,6 +49,7 @@ function App() {
 
           {/* Admin pages */}
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/reset-password" element={<AdminReset />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order-success/:id" element={<OrderSuccessPage />} />

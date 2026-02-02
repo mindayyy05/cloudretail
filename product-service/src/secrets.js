@@ -1,9 +1,9 @@
 const AWSXRay = require('aws-xray-sdk');
-const { SecretsManagerClient, GetSecretValueCommand } = AWSXRay.captureAWSv3Client(require("@aws-sdk/client-secrets-manager"));
+const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
 
-const client = new SecretsManagerClient({
+const client = AWSXRay.captureAWSv3Client(new SecretsManagerClient({
     region: process.env.AWS_REGION || "us-east-1",
-});
+}));
 
 async function loadSecrets() {
     const secretName = "cloudretail/backend/secrets";

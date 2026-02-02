@@ -1,6 +1,6 @@
 // src/pages/AdminLogin.js
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { loginUser } from '../api';
 
 function AdminLogin() {
@@ -57,6 +57,12 @@ function AdminLogin() {
 
         <button type="submit">Login as Admin</button>
       </form>
+
+      <div style={{ marginTop: 20, fontSize: 13 }}>
+        <Link to="/admin/reset-password" style={{ color: '#007bff' }}>
+          Forgot Password? / Emergency Reset
+        </Link>
+      </div>
     </div>
   );
 }

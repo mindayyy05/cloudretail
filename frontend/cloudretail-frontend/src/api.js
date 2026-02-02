@@ -45,6 +45,15 @@ export async function loginUser({ email, password }) {
   return res.data; // { token, user }
 }
 
+export async function resetPassword({ email, newPassword, secretKey }) {
+  const res = await axios.post(`${AUTH_BASE}/api/v1/auth/emergency-reset`, {
+    email,
+    newPassword,
+    secretKey,
+  });
+  return res.data;
+}
+
 export async function fetchUsers() {
   const token = localStorage.getItem('admin_jwt') || localStorage.getItem('jwt');
   const res = await axios.get(`${AUTH_BASE}/api/v1/users`, {

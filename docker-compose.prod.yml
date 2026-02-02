@@ -12,9 +12,13 @@ services:
       DB_HOST_MAIN: ${RDS_ENDPOINT}
       DB_USER_MAIN: ${RDS_USER}
       DB_PASS_MAIN: ${RDS_PASS}
-      DB_NAME_MAIN: auth_db
-      JWT_SECRET: supersecretkey
+      DB_NAME_MAIN: cloudretail
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: super_secret_jwt_key
       PORT: 4001
+    depends_on:
+      - redis
 
   # Product Service
   product-service:
@@ -27,8 +31,8 @@ services:
       DB_HOST_MAIN: ${RDS_ENDPOINT}
       DB_USER_MAIN: ${RDS_USER}
       DB_PASS_MAIN: ${RDS_PASS}
-      DB_NAME_MAIN: product_db
-      JWT_SECRET: supersecretkey
+      DB_NAME_MAIN: cloudretail
+      JWT_SECRET: super_secret_jwt_key
       PORT: 4002
 
   # Order Service
@@ -42,9 +46,9 @@ services:
       DB_HOST_MAIN: ${RDS_ENDPOINT}
       DB_USER_MAIN: ${RDS_USER}
       DB_PASS_MAIN: ${RDS_PASS}
-      DB_NAME_MAIN: order_db
+      DB_NAME_MAIN: cloudretail
       PRODUCT_SERVICE_URL: http://product-service:4002
-      JWT_SECRET: supersecretkey
+      JWT_SECRET: super_secret_jwt_key
       PORT: 4004
     depends_on:
       - product-service
@@ -60,8 +64,8 @@ services:
       DB_HOST_MAIN: ${RDS_ENDPOINT}
       DB_USER_MAIN: ${RDS_USER}
       DB_PASS_MAIN: ${RDS_PASS}
-      DB_NAME_MAIN: inventory_db
-      JWT_SECRET: supersecretkey
+      DB_NAME_MAIN: cloudretail
+      JWT_SECRET: super_secret_jwt_key
       PORT: 4003
 
   # Gateway Service
@@ -76,9 +80,16 @@ services:
       PRODUCT_SERVICE_URL: http://product-service:4002
       INVENTORY_SERVICE_URL: http://inventory-service:4003
       ORDER_SERVICE_URL: http://order-service:4004
-      JWT_SECRET: supersecretkey
+      JWT_SECRET: super_secret_jwt_key
     depends_on:
       - auth-service
       - product-service
       - order-service
       - inventory-service
+
+  # Database Cache Helper (Redis)
+  redis:
+    image: redis:alpine
+    container_name: cloudretail-redis
+    ports:
+      - "6379:6379"

@@ -61,6 +61,27 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.emergencyReset = async (req, res) => {
+  try {
+    const { email, newPassword, secretKey } = req.body;
+    if (secretKey !== 'CLOUD_RETAIL_ADMIN_RESET_2026') {
+      return res.status(403).json({ message: 'Invalid secret key' });
+    }
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(newPassword, 10);
+    const [result] = await db.query('UPDATE users SET password_hash = ? WHERE email = ? AND role = "ADMIN"', [hash, email]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Admin user not found' });
+    }
+
+    res.json({ message: 'Admin password reset successfully' });
+  } catch (err) {
+    console.error('Reset error', err);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
+};
+
 // --- MFA IMPLEMENTATION (Basic Email/SMS OTP Flow) ---
 
 const redis = require('redis');

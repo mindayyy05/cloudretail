@@ -42,6 +42,7 @@ app.get('/metrics', async (req, res) => {
 
 app.post('/api/v1/auth/register', register);
 app.post('/api/v1/auth/login', login);
+app.post('/api/v1/auth/emergency-reset', require('./authController').emergencyReset);
 app.post('/api/v1/auth/mfa/generate', generateOTP);
 app.post('/api/v1/auth/mfa/verify', verifyOTP);
 
