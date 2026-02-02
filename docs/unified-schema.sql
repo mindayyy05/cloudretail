@@ -1,7 +1,8 @@
 -- CloudRetail Unified Database Initialization
 -- This script creates all tables in the SINGLE 'cloudretail' database
 
--- Ensure we are using the correct database
+-- Ensure the database exists
+CREATE DATABASE IF NOT EXISTS cloudretail;
 USE cloudretail;
 
 -- 1. AUTH: User Authentication
